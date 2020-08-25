@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <script src="example_maps_emcc.js"></script>
+    <script src="MapWidget.js"></script>
+
+    <script>
+    function getConfig()
+    {
+      let textArea = document.getElementById('configTextArea');
+      textArea.value = MapWidget.getConfig('myCanvas');
+    }
+
+    function setConfig()
+    {
+      let textArea = document.getElementById('configTextArea');
+      MapWidget.setConfig('myCanvas', textArea.value);
+    }
+    </script>
+  </head>
+
+  <body>
+
+    <canvas id='myCanvas' width=400 height=400></canvas>
+    <script>MapWidget.init('myCanvas');</script>
+     
+    <br>
+
+    <button onclick=getConfig();>Get Config</button>
+    <button onclick=setConfig();>Set Config</button>
+
+    <br>
+
+    <textarea id='configTextArea'></textarea>
+
+  </body>
+</html>

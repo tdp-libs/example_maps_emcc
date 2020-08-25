@@ -1,0 +1,4 @@
+TARGET      = example_maps_emcc
+PROJECT_DIR = example_maps_emcc
+include tp_build/gmake/build.pri
+
