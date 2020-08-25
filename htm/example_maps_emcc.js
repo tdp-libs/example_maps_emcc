@@ -1,1 +1,1 @@
-../../../build-db_js_roi_widget/db_js_roi_widget.js
+../../../build-example_maps_emcc/example_maps_emcc.js

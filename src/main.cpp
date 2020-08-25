@@ -3,74 +3,38 @@
 #include "tp_maps_emcc/Map.h"
 #include "tp_maps_emcc/MapManager.h"
 
-#include "tp_maps/layers/ImageLayer.h"
-#include "tp_maps/textures/DefaultSpritesTexture.h"
-#include "tp_maps/SpriteTexture.h"
-#include "tp_maps/controllers/AnimatedFlatController.h"
-#include "tp_maps/layers/GeometryLayer.h"
+#include "tp_maps/controllers/FlatController.h"
+#include "tp_maps/layers/Geometry3DLayer.h"
 #include "tp_maps/layers/LinesLayer.h"
-#include "tp_maps/MouseEvent.h"
-#include "tp_maps/picking_results/GeometryPickingResult.h"
 
-#include "tp_math_utils/Polygon.h"
+#include "tp_math_utils/Sphere.h"
 
 #include "tp_utils/DebugUtils.h"
 
+#include "glm/gtc/matrix_transform.hpp"
+
 #include <set>
 
-extern example_maps_emcc::MapManager* manager;
-example_maps_emcc::MapManager* manager{nullptr};
+extern tp_maps_emcc::MapManager* manager;
+tp_maps_emcc::MapManager* manager{nullptr};
 
 //##################################################################################################
 struct MapDetails : public tp_maps_emcc::MapDetails
 {
-  tp_maps::GeometryLayer*          geometryLayer {nullptr};
-  tp_maps::LinesLayer*             linesLayer    {nullptr};
+  tp_maps::Geometry3DLayer* geometryLayer {nullptr};
+  tp_maps::LinesLayer*      linesLayer    {nullptr};
 
-  tp_maps::AnimatedFlatController* controller    {nullptr};
-
-  std::vector<tp_maps::Geometry> existingSections;
-  int selectedSection{-1};
-  std::string selectedSegment;
-
-  std::string clickablePolygonSet{"Extracted"};
-  std::unordered_map<int, int> geometryIndexLookup;
-
-  bool showAvailable{true};
-  bool showSelected{true};
-  bool showMerged{true};
-  float minVolume{100.0f};
+  int rotation{0};
 
   //################################################################################################
   MapDetails(tp_maps_emcc::Map* map_):
     tp_maps_emcc::MapDetails(map_)
   {
-    roiRect.geometry.reserve(4);
-    roiRect.geometry.emplace_back(0.0f, 0.0f, 0.0f);
-    roiRect.geometry.emplace_back(10.0f, 0.0f, 0.0f);
-    roiRect.geometry.emplace_back(10.0f, 10.0f, 0.0f);
-    roiRect.geometry.emplace_back(0.0f, 10.0f, 0.0f);
 
-    roiRect.material.ambient  = glm::vec3(0.9f, 0.9f, 0.2f);
-    roiRect.material.diffuse  = glm::vec3(1.0f, 1.0f, 0.0f);
-    roiRect.material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    roiRect.material.shininess = 32.0f;
-    roiRect.material.alpha = 0.2f;
   }
 
   //################################################################################################
   ~MapDetails() override;
-
-  //################################################################################################
-  void updateGeometry()
-  {
-    geometryLayer->setGeometry({roiRect});
-
-    tp_maps::Lines roiLines;
-    roiLines.lines = roiRect.geometry;
-    roiLines.color = {1.0f, 0.0f, 0.0f, 1.0f};
-    linesLayer->setLines({roiLines});
-  }
 };
 
 //##################################################################################################
@@ -80,27 +44,43 @@ MapDetails::~MapDetails()=default;
 //##################################################################################################
 int main()
 {
-//#warning fix
-//  static int ii = tp_maps::staticInit();
-
   auto createMapCallback = [](tp_maps_emcc::Map* map)
   {
     MapDetails* details = new MapDetails(map);
     details->map->setBackgroundColor({0.5f, 0.5f, 0.5f});
 
-    details->geometryLayer = new tp_maps::GeometryLayer();
-    details->geometryLayer->setDefaultRenderPass(tp_maps::RenderPass::GUI);
+    details->geometryLayer = new tp_maps::Geometry3DLayer();
     details->map->addLayer(details->geometryLayer);
 
     details->linesLayer = new tp_maps::LinesLayer();
-    details->linesLayer->setDefaultRenderPass(tp_maps::RenderPass::GUI);
     details->map->addLayer(details->linesLayer);
 
-    details->updateGeometry();
+    std::vector<tp_maps::Geometry3D> geometry;
+    auto& mesh = geometry.emplace_back().geometry;
+    mesh = tp_math_utils::Sphere::octahedralClass1(6.0, 
+                                                   4, 
+                                                   GL_TRIANGLE_FAN,
+                                                   GL_TRIANGLE_STRIP,
+                                                   GL_TRIANGLES);
+    mesh.calculateFaceNormals();
 
-    details->controller = new tp_maps::AnimatedFlatController(details->map);
-    details->controller->setVariableViewAngle(false);
+    details->geometryLayer->setGeometry(geometry);
+    details->linesLayer->setLinesFromGeometry(geometry);
 
+    auto controller = new tp_maps::FlatController(details->map);
+    controller->setAllowRotation(false);
+    controller->setVariableViewAngle(false);
+    controller->setAllowTranslation(false);
+
+    details->geometryLayer->animateCallbacks.addCallback([=](double t)
+    {
+      details->rotation+=1;
+      details->rotation%=360;
+      glm::mat4 m{1.0f};
+      m = glm::rotate(m, glm::radians(float(details->rotation)), glm::vec3(0.0, 1.0, 0.0));
+      details->geometryLayer->setObjectMatrix(m);
+      details->linesLayer->setObjectMatrix(m);
+    });
 
     return details;
   };
@@ -151,21 +131,7 @@ void getConfig(void* handle, void(*callback)(const void*))
     MapDetails* details = reinterpret_cast<MapDetails*>(handle);
 
     nlohmann::json j;
-    {
-      j["type"] = "Feature";
-
-      auto& g = j["geometry"];
-      g["type"] = "polygon";
-
-      nlohmann::json geometry = nlohmann::json::array();
-      const std::vector<tp_maps::HandleDetails*>& handles = details->handleLayer->handles();
-      for(const tp_maps::HandleDetails* point : handles)
-        geometry.push_back(nlohmann::json::array({int(point->position.x),
-                                                  int(point->position.y)}));
-
-      g["coordinates"] = nlohmann::json::array({geometry});
-    }
-
+    
     std::string data = j.dump();
     callback(data.data());
   }
