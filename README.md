@@ -12,7 +12,7 @@ mkdir maps_emcc
 cd maps_emcc
 git clone https://github.com/tdp-libs/example_maps_emcc.git
 cp example_maps_emcc/Makefile.top Makefile
-tdpUpdate
+tpUpdate
 cd ..
 
 ```
