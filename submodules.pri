@@ -10,6 +10,7 @@ SUBDIRS += tp_math_utils
 SUBDIRS += tp_triangulation
 SUBDIRS += tp_maps
 SUBDIRS += tp_maps_emcc
+SUBDIRS += tp_maps_example
 
 SUBDIRS += example_maps_emcc
 
